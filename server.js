@@ -304,12 +304,53 @@ const server = http.createServer(async (req, res) => {
 
       const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}&backgroundColor=0d9488,0891b2,2563eb,7c3aed`;
 
+async function sendRealEmail(toEmail, otpCode) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return false;
+
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'NOVA Messenger <onboarding@resend.dev>',
+        to: [toEmail],
+        subject: `🔑 Il tuo codice di verifica NOVA: ${otpCode}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 24px; border: 1px solid #1e293b; border-radius: 12px; background-color: #090d16; color: #f8fafc;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h1 style="color: #38bdf8; font-size: 28px; margin: 0; font-weight: 800;">✦ NOVA</h1>
+              <p style="color: #94a3b8; font-size: 14px; margin-top: 4px;">Beyond Messaging. Zero numeri di telefono.</p>
+            </div>
+            <p style="font-size: 16px; line-height: 1.5; color: #e2e8f0;">Ciao! Ecco il tuo codice di verifica a 6 cifre per completare la registrazione su NOVA Messenger:</p>
+            <div style="text-align: center; margin: 32px 0;">
+              <span style="font-size: 38px; font-weight: 900; letter-spacing: 10px; color: #10b981; background: #064e3b; padding: 14px 28px; border-radius: 10px; display: inline-block;">${otpCode}</span>
+            </div>
+            <p style="font-size: 13px; color: #64748b; text-align: center; margin-top: 24px;">Questo codice scadrà tra 15 minuti. Se non hai richiesto tu questo codice, ignora questa email.</p>
+          </div>
+        `
+      })
+    });
+    const data = await res.json();
+    console.log('[Resend Email] Sent to:', toEmail, 'Result:', data);
+    return true;
+  } catch (err) {
+    console.error('[Resend Email Error]:', err.message);
+    return false;
+  }
+}
+
       await db.run(`
         INSERT INTO users (id, email, username, password_hash, salt, full_name, avatar_url, is_verified, verification_code, verification_expires, created_at, last_seen)
         VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
       `, [userId, cleanEmail, cleanUsername, passwordHash, salt, fullName.trim(), avatarUrl, otp, expires, now, now]);
 
       LATEST_DEV_OTP = { email: cleanEmail, code: otp, timestamp: now };
+      await sendRealEmail(cleanEmail, otp);
+
       console.log(`\n========================================`);
       console.log(`[AUTH NOVA] REGISTRAZIONE UTENTE: ${cleanEmail} (@${cleanUsername})`);
       console.log(`[AUTH NOVA] CODICE VERIFICA EMAIL (OTP): ${otp}`);
@@ -318,8 +359,7 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, 201, {
         success: true,
         message: 'Registrazione effettuata! Inserisci il codice di verifica inviato via email.',
-        email: cleanEmail,
-        devOtp: otp
+        email: cleanEmail
       });
     }
 
@@ -380,7 +420,8 @@ const server = http.createServer(async (req, res) => {
       await db.run('UPDATE users SET verification_code = ?, verification_expires = ? WHERE id = ?', [otp, expires, user.id]);
 
       LATEST_DEV_OTP = { email: user.email, code: otp, timestamp: Date.now() };
-      return sendJson(res, 200, { success: true, message: 'Nuovo codice inviato via email.', devOtp: otp });
+      await sendRealEmail(user.email, otp);
+      return sendJson(res, 200, { success: true, message: 'Nuovo codice inviato via email.' });
     }
 
     // 4. Auth: Login
