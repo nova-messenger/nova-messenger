@@ -329,29 +329,36 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, 400, { error: 'La password deve contenere almeno 6 caratteri.' });
       }
 
-      const existingEmail = await db.get('SELECT id FROM users WHERE email = ?', [cleanEmail]);
-      if (existingEmail) {
-        return sendJson(res, 400, { error: 'Un account con questa email esiste già.' });
+      const existingEmail = await db.get('SELECT id, is_verified FROM users WHERE email = ?', [cleanEmail]);
+      if (existingEmail && existingEmail.is_verified === 1) {
+        return sendJson(res, 400, { error: 'Un account con questa email è già registrato ed attivo. Effettua il Login!' });
       }
 
-      const existingUsername = await db.get('SELECT id FROM users WHERE username = ?', [cleanUsername]);
-      if (existingUsername) {
-        return sendJson(res, 400, { error: 'Questo nome utente @' + cleanUsername + ' è già occupato.' });
+      const existingUsername = await db.get('SELECT id, is_verified FROM users WHERE username = ? AND email != ?', [cleanUsername, cleanEmail]);
+      if (existingUsername && existingUsername.is_verified === 1) {
+        return sendJson(res, 400, { error: 'Questo nome utente @' + cleanUsername + ' è già occupato da un altro account.' });
       }
 
-      const userId = 'usr_' + crypto.randomUUID();
       const salt = generateSalt();
       const passwordHash = hashPassword(password, salt);
       const otp = generateOtp();
       const now = Date.now();
       const expires = now + 15 * 60 * 1000;
-
       const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(fullName)}&backgroundColor=0d9488,0891b2,2563eb,7c3aed`;
 
-      await db.run(`
-        INSERT INTO users (id, email, username, password_hash, salt, full_name, avatar_url, is_verified, verification_code, verification_expires, created_at, last_seen)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
-      `, [userId, cleanEmail, cleanUsername, passwordHash, salt, fullName.trim(), avatarUrl, otp, expires, now, now]);
+      if (existingEmail && existingEmail.is_verified === 0) {
+        await db.run(`
+          UPDATE users 
+          SET username = ?, password_hash = ?, salt = ?, full_name = ?, avatar_url = ?, verification_code = ?, verification_expires = ?, last_seen = ?
+          WHERE id = ?
+        `, [cleanUsername, passwordHash, salt, fullName.trim(), avatarUrl, otp, expires, now, existingEmail.id]);
+      } else {
+        const userId = 'usr_' + crypto.randomUUID();
+        await db.run(`
+          INSERT INTO users (id, email, username, password_hash, salt, full_name, avatar_url, is_verified, verification_code, verification_expires, created_at, last_seen)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
+        `, [userId, cleanEmail, cleanUsername, passwordHash, salt, fullName.trim(), avatarUrl, otp, expires, now, now]);
+      }
 
       LATEST_DEV_OTP = { email: cleanEmail, code: otp, timestamp: now };
       await sendRealEmail(cleanEmail, otp);
@@ -363,7 +370,7 @@ const server = http.createServer(async (req, res) => {
 
       return sendJson(res, 201, {
         success: true,
-        message: 'Registrazione effettuata! Abbiamo inviato il codice di verifica alla tua email.',
+        message: 'Registrazione effettuata! Abbiamo inviato il codice di verifica a ' + cleanEmail,
         email: cleanEmail
       });
     }

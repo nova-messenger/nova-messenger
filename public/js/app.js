@@ -956,25 +956,52 @@ class AppController {
       const password = document.getElementById('reg-password').value;
 
       try {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        const oldText = submitBtn.textContent;
+        submitBtn.textContent = 'Invio codice in corso...';
+        submitBtn.disabled = true;
+
         const res = await window.api.register(email, password, username, fullName);
         document.getElementById('verify-email-display').textContent = email;
         document.getElementById('verify-email-hidden').value = email;
 
-        if (res.devOtp) {
-          const banner = document.getElementById('dev-otp-banner');
-          banner.classList.remove('hidden');
-          document.getElementById('dev-otp-code').textContent = res.devOtp;
-        }
+        submitBtn.textContent = oldText;
+        submitBtn.disabled = false;
 
         this.toggleAuthView('verify');
+        alert(res.message || 'Abbiamo inviato un codice di verifica alla tua email!');
       } catch (err) {
-        alert(err.message);
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.textContent = 'Crea Account & Invia Codice';
+          submitBtn.disabled = false;
+        }
+        if (err.message && err.message.includes('già registrato ed attivo')) {
+          if (confirm(err.message + '\n\nVuoi andare alla schermata di Login?')) {
+            document.getElementById('login-identifier').value = email;
+            this.toggleAuthView('login');
+          }
+        } else {
+          alert(err.message);
+        }
       }
     });
 
-    document.getElementById('btn-fill-dev-otp')?.addEventListener('click', () => {
-      const code = document.getElementById('dev-otp-code').textContent;
-      document.getElementById('verify-code-input').value = code;
+    document.getElementById('resend-code-btn')?.addEventListener('click', async () => {
+      const email = document.getElementById('verify-email-hidden').value || document.getElementById('verify-email-display').textContent;
+      if (!email) return alert('Email mancante.');
+
+      const resendBtn = document.getElementById('resend-code-btn');
+      resendBtn.textContent = 'Invio in corso...';
+
+      try {
+        const res = await window.api.resendCode(email);
+        alert(res.message || 'Nuovo codice di verifica inviato alla tua email!');
+        resendBtn.textContent = 'Rimanda Codice';
+      } catch (err) {
+        alert(err.message);
+        resendBtn.textContent = 'Rimanda Codice';
+      }
     });
 
     document.getElementById('verify-form')?.addEventListener('submit', async (e) => {
@@ -1001,11 +1028,12 @@ class AppController {
         window.api.setToken(res.token);
         this.onAuthenticated(res.user);
       } catch (err) {
-        if (err.message.includes('non ancora verificato')) {
+        if (err.message && (err.message.includes('non ancora verificato') || err.message.includes('NOT_VERIFIED'))) {
           const email = document.getElementById('login-identifier').value;
           document.getElementById('verify-email-display').textContent = email;
           document.getElementById('verify-email-hidden').value = email;
           this.toggleAuthView('verify');
+          alert('Il tuo account deve essere verificato. Abbiamo inviato un nuovo codice a ' + email);
         } else {
           alert(err.message);
         }
