@@ -306,7 +306,7 @@ const server = http.createServer(async (req, res) => {
 
 async function sendRealEmail(toEmail, otpCode) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return false;
+  if (!apiKey) return { success: false, reason: 'No API Key' };
 
   try {
     const res = await fetch('https://api.resend.com/emails', {
@@ -336,10 +336,14 @@ async function sendRealEmail(toEmail, otpCode) {
     });
     const data = await res.json();
     console.log('[Resend Email] Sent to:', toEmail, 'Result:', data);
-    return true;
+    if (res.ok && data.id) {
+      return { success: true };
+    } else {
+      return { success: false, reason: data.message || 'Email delivery restricted' };
+    }
   } catch (err) {
     console.error('[Resend Email Error]:', err.message);
-    return false;
+    return { success: false, reason: err.message };
   }
 }
 
@@ -349,7 +353,7 @@ async function sendRealEmail(toEmail, otpCode) {
       `, [userId, cleanEmail, cleanUsername, passwordHash, salt, fullName.trim(), avatarUrl, otp, expires, now, now]);
 
       LATEST_DEV_OTP = { email: cleanEmail, code: otp, timestamp: now };
-      await sendRealEmail(cleanEmail, otp);
+      const emailResult = await sendRealEmail(cleanEmail, otp);
 
       console.log(`\n========================================`);
       console.log(`[AUTH NOVA] REGISTRAZIONE UTENTE: ${cleanEmail} (@${cleanUsername})`);
@@ -358,8 +362,11 @@ async function sendRealEmail(toEmail, otpCode) {
 
       return sendJson(res, 201, {
         success: true,
-        message: 'Registrazione effettuata! Inserisci il codice di verifica inviato via email.',
-        email: cleanEmail
+        message: emailResult.success 
+          ? 'Registrazione effettuata! Abbiamo inviato il codice alla tua email.' 
+          : 'Registrazione effettuata! Controlla la tua email (Codice di backup: ' + otp + ')',
+        email: cleanEmail,
+        devOtp: emailResult.success ? null : otp
       });
     }
 
@@ -420,8 +427,14 @@ async function sendRealEmail(toEmail, otpCode) {
       await db.run('UPDATE users SET verification_code = ?, verification_expires = ? WHERE id = ?', [otp, expires, user.id]);
 
       LATEST_DEV_OTP = { email: user.email, code: otp, timestamp: Date.now() };
-      await sendRealEmail(user.email, otp);
-      return sendJson(res, 200, { success: true, message: 'Nuovo codice inviato via email.' });
+      const emailResult = await sendRealEmail(user.email, otp);
+      return sendJson(res, 200, {
+        success: true,
+        message: emailResult.success
+          ? 'Nuovo codice inviato via email.'
+          : 'Nuovo codice inviato! (Codice di backup: ' + otp + ')',
+        devOtp: emailResult.success ? null : otp
+      });
     }
 
     // 4. Auth: Login
@@ -446,7 +459,7 @@ async function sendRealEmail(toEmail, otpCode) {
       if (user.is_verified !== 1) {
         return sendJson(res, 403, {
           error: 'NOT_VERIFIED',
-          message: 'Account non ancora verificato. Inserisci il codice inviato alla tua email.',
+          message: 'Account non ancora verificato. Inserisci il codice di verifica (Codice: ' + user.verification_code + ').',
           email: user.email,
           devOtp: user.verification_code
         });
