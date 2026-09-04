@@ -1,0 +1,19 @@
+{
+  "name": "NOVA Messenger",
+  "short_name": "NOVA",
+  "description": "Beyond Messaging. Zero Phone Numbers. Crystal Clear Calls.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "/icons/nova-icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["social", "communication"]
+}

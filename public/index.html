@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="it" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NOVA — Beyond Messaging</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#090d16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="NOVA">
+  <link rel="apple-touch-icon" href="/icons/nova-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+
+  <!-- NOTIFICATION PERMISSION BANNER -->
+  <div id="notify-permission-banner" class="notify-permission-banner hidden">
+    🔔 <strong>Attiva le notifiche</strong> per ricevere avvisi di messaggi e chiamate in tempo reale.
+    <button id="btn-enable-notifications" class="btn-enable-notify">Attiva Notifiche</button>
+    <button id="btn-dismiss-notify-banner" class="btn-dismiss-notify">✕</button>
+  </div>
+
+  <!-- PWA INSTALL BANNER -->
+  <div id="pwa-install-banner" class="pwa-install-banner hidden">
+    <span>✦ Installa <strong>NOVA</strong> sul tuo dispositivo per l'esperienza nativa</span>
+    <button id="btn-install-pwa" class="btn-primary" style="width:auto;padding:6px 14px;margin:0;">Installa</button>
+    <button id="btn-dismiss-pwa" class="modal-close-btn">✕</button>
+  </div>
+
+  <!-- =============================================================
+       AUTH SCREEN (Login / Registrazione / Verifica OTP)
+  ============================================================= -->
+  <div id="auth-screen" class="auth-container">
+    <div class="auth-card">
+      
+      <div class="brand-header">
+        <div class="brand-logo-icon">✦</div>
+        <h1 class="brand-title">NOVA</h1>
+        <p class="brand-subtitle">Beyond Messaging. Zero numeri di telefono.</p>
+      </div>
+
+      <!-- 1. LOGIN VIEW -->
+      <div id="auth-login-view">
+        <form id="login-form">
+          <div class="form-group">
+            <label for="login-identifier">Email o @Username</label>
+            <input type="text" id="login-identifier" placeholder="es. andrea o andrea@email.com" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn-primary">Entra in NOVA</button>
+        </form>
+        <div class="auth-footer">
+          Non hai ancora un account? <span class="auth-link" id="to-register-btn">Registrati subito</span>
+        </div>
+      </div>
+
+      <!-- 2. REGISTER VIEW -->
+      <div id="auth-register-view" class="hidden">
+        <form id="register-form">
+          <div class="form-group">
+            <label for="reg-fullname">Nome e Cognome</label>
+            <input type="text" id="reg-fullname" placeholder="es. Andrea Lazzaro" required>
+          </div>
+          <div class="form-group">
+            <label for="reg-username">Scegli il tuo @Username univoco</label>
+            <div class="username-input-wrap">
+              <span class="username-prefix">@</span>
+              <input type="text" id="reg-username" placeholder="andrea" required pattern="[a-zA-Z0-9_.]{3,30}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Indirizzo Email</label>
+            <input type="email" id="reg-email" placeholder="andrea@esempio.com" required>
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Password (minimo 6 caratteri)</label>
+            <input type="password" id="reg-password" placeholder="••••••••" minlength="6" required>
+          </div>
+          <button type="submit" class="btn-primary">Crea Account & Invia Codice</button>
+        </form>
+        <div class="auth-footer">
+          Hai già un account? <span class="auth-link" id="to-login-btn">Accedi</span>
+        </div>
+      </div>
+
+      <!-- 3. VERIFICATION VIEW (OTP) -->
+      <div id="auth-verify-view" class="hidden">
+        <div id="dev-otp-banner" class="dev-alert-banner hidden">
+          <div class="dev-alert-header">
+            <span>✉️ SIMULATORE EMAIL OTP</span>
+          </div>
+          <p>Codice di verifica OTP generato per la tua email:</p>
+          <div class="dev-otp-display">
+            <span class="dev-otp-pill" id="dev-otp-code">123456</span>
+            <button type="button" class="btn-auto-fill" id="btn-fill-dev-otp">Inserisci Subito</button>
+          </div>
+        </div>
+
+        <p style="font-size: 13.5px; color: var(--text-muted); margin-bottom: 16px; text-align: center;">
+          Abbiamo inviato un codice a 6 cifre all'indirizzo:<br>
+          <strong id="verify-email-display" style="color: var(--text-main);"></strong>
+        </p>
+
+        <form id="verify-form">
+          <input type="hidden" id="verify-email-hidden">
+          <div class="form-group">
+            <label for="verify-code-input" style="text-align: center;">Codice OTP a 6 cifre</label>
+            <input type="text" id="verify-code-input" placeholder="123456" maxlength="6" style="text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: 800;" required>
+          </div>
+          <button type="submit" class="btn-primary">Verifica ed Entra</button>
+        </form>
+
+        <div style="display: flex; justify-content: space-between; margin-top: 18px; font-size: 13px;">
+          <span class="auth-link" id="resend-code-btn">Rimanda Codice</span>
+          <span class="auth-link" id="to-login-from-verify-btn">Torna al Login</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- =============================================================
+       MAIN APP SCREEN (NOVA 360° Shell)
+  ============================================================= -->
+  <div id="app-screen" class="hidden">
+    
+    <!-- 1. LEFT VERTICAL NAVIGATION RAIL -->
+    <nav class="app-nav-rail">
+      <div class="rail-top">
+        <div class="rail-brand-icon" title="NOVA">✦</div>
+        
+        <button class="nav-tab-btn active" id="tab-btn-chats" data-tab="chats" title="Chat">
+          💬
+        </button>
+        
+        <button class="nav-tab-btn" id="tab-btn-updates" data-tab="updates" title="Aggiornamenti & Storie">
+          ⭕
+        </button>
+        
+        <button class="nav-tab-btn" id="tab-btn-communities" data-tab="communities" title="Community">
+          🌐
+        </button>
+        
+        <button class="nav-tab-btn" id="tab-btn-calls" data-tab="calls" title="Chiamate">
+          📞
+        </button>
+        
+        <button class="nav-tab-btn" id="tab-btn-you" data-tab="you" title="Tu (Note, Dispositivi, Profilo)">
+          👤
+        </button>
+      </div>
+
+      <div class="rail-bottom">
+        <button class="btn-theme-toggle" id="btn-quick-theme-toggle" title="Cambia Tema Giorno/Notte">
+          🌓
+        </button>
+        <button class="nav-tab-btn" id="btn-quick-settings" title="Impostazioni Profilo">
+          ⚙️
+        </button>
+      </div>
+    </nav>
+
+    <!-- 2. MAIN WORKSPACE -->
+    <div id="app-main">
+
+      <!-- SIDEBAR PANE -->
+      <aside class="app-sidebar">
+
+        <!-- VIEW A: CHATS TAB -->
+        <div id="view-chats" class="sidebar-tab-view">
+          <div class="sidebar-top-bar">
+            <span class="sidebar-view-title">Chat</span>
+            <div class="sidebar-actions">
+              <button id="btn-new-group" class="icon-btn" title="Nuovo Gruppo">👥</button>
+              <button id="btn-new-chat" class="icon-btn" title="Nuova Chat">✏️</button>
+            </div>
+          </div>
+
+          <!-- Quick Filter Pills -->
+          <div class="filter-pills-bar">
+            <button class="filter-pill active" data-filter="all">Tutte</button>
+            <button class="filter-pill" data-filter="unread">Non letti</button>
+            <button class="filter-pill" data-filter="favorites">Preferiti</button>
+            <button class="filter-pill" data-filter="groups">Gruppi</button>
+          </div>
+
+          <!-- Search Bar -->
+          <div class="search-container">
+            <div class="search-input-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="search-contacts-input" placeholder="Cerca o avvia una nuova chat...">
+            </div>
+            <div id="global-search-results" class="search-results-overlay hidden"></div>
+          </div>
+
+          <!-- Conversations List -->
+          <div class="conversations-scroll" id="conversations-list"></div>
+        </div>
+
+        <!-- VIEW B: UPDATES TAB (Storie & Canali) -->
+        <div id="view-updates" class="sidebar-tab-view hidden">
+          <div class="sidebar-top-bar">
+            <span class="sidebar-view-title">Aggiornamenti</span>
+            <button id="btn-create-story-top" class="btn-secondary" style="font-size:12px;">+ Nuovo Stato</button>
+          </div>
+          
+          <div class="stories-section">
+            <div class="stories-label-row"><span>Stato (24h)</span></div>
+            <div class="stories-scroll-container" id="stories-container"></div>
+          </div>
+
+          <div style="padding: 16px;">
+            <h4 style="font-size: 14px; color: var(--text-dim); margin-bottom: 10px; text-transform: uppercase;">Canali Seguiti</h4>
+            <div class="community-card">
+              <img src="https://api.dicebear.com/7.x/identicon/svg?seed=NOVA_Announcements" alt="Channel">
+              <div>
+                <span style="font-weight:700; font-size:14px; display:block;">NOVA Notizie Ufficiali</span>
+                <span style="font-size:12px; color:var(--text-muted);">Tutti gli aggiornamenti di versione e sicurezza</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- VIEW C: COMMUNITIES TAB -->
+        <div id="view-communities" class="sidebar-tab-view hidden">
+          <div class="sidebar-top-bar">
+            <span class="sidebar-view-title">Community</span>
+            <button id="btn-open-create-comm" class="btn-primary" style="width: auto; padding: 6px 12px; margin: 0; font-size: 12px;">+ Crea</button>
+          </div>
+          <div class="community-scroll" id="communities-list">
+            <!-- Dynamic community cards -->
+          </div>
+        </div>
+
+        <!-- VIEW D: CALLS TAB -->
+        <div id="view-calls" class="sidebar-tab-view hidden">
+          <div class="sidebar-top-bar">
+            <span class="sidebar-view-title">Chiamate</span>
+          </div>
+          <div class="calls-scroll" id="calls-history-list">
+            <!-- Dynamic call items -->
+          </div>
+        </div>
+
+        <!-- VIEW E: "TU" TAB (Personal Hub) -->
+        <div id="view-you" class="sidebar-tab-view hidden">
+          <div class="sidebar-top-bar">
+            <span class="sidebar-view-title">Tu</span>
+            <button id="btn-logout-you" class="icon-btn" title="Esci">🚪</button>
+          </div>
+
+          <div class="you-tab-scroll">
+            <!-- Profile Card -->
+            <div class="profile-card-hub">
+              <img id="hub-my-avatar" src="" alt="Avatar">
+              <div class="profile-hub-meta">
+                <span id="hub-my-fullname" class="hub-name"></span>
+                <span id="hub-my-username" class="hub-handle"></span>
+                <span id="hub-my-bio" class="hub-bio"></span>
+              </div>
+              <button id="btn-edit-profile-hub" class="icon-btn" title="Modifica Profilo">✏️</button>
+            </div>
+
+            <!-- Theme Switcher Card -->
+            <div class="section-box">
+              <div class="theme-switch-row">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span style="font-size: 20px;">🌓</span>
+                  <div>
+                    <span style="font-weight:600; font-size:14px; display:block;">Tema Grafico</span>
+                    <span style="font-size:12px; color:var(--text-muted);" id="current-theme-label">Modalità Notte</span>
+                  </div>
+                </div>
+                <button id="btn-toggle-theme-hub" class="theme-switch-btn">
+                  Cambia a Giorno ☀️
+                </button>
+              </div>
+            </div>
+
+            <!-- To-Do List (Cose da fare & Note) -->
+            <div class="section-box">
+              <div class="section-box-header">
+                <span class="section-box-title">📝 Cose da Fare & Note</span>
+                <span id="todo-counter-badge" style="font-size:11px; color:var(--accent); font-weight:700;"></span>
+              </div>
+              
+              <form id="add-todo-form" class="todo-input-row">
+                <input type="text" id="todo-input" placeholder="Aggiungi una nota o promemoria..." required>
+                <button type="submit" class="btn-primary" style="width:auto; padding:6px 14px; margin:0;">Aggiungi</button>
+              </form>
+
+              <div id="todos-container"></div>
+            </div>
+
+            <!-- Starred Messages (Messaggi Importanti) -->
+            <div class="section-box">
+              <div class="section-box-header">
+                <span class="section-box-title">⭐ Messaggi Importanti</span>
+              </div>
+              <div id="starred-messages-container" style="font-size:13px; color:var(--text-muted);">
+                <p>Nessun messaggio contrassegnato con la stella.</p>
+              </div>
+            </div>
+
+            <!-- Linked Devices (Dispositivi Collegati) -->
+            <div class="section-box">
+              <div class="section-box-header">
+                <span class="section-box-title">💻 Dispositivi Collegati</span>
+              </div>
+              <div id="devices-container"></div>
+            </div>
+
+          </div>
+        </div>
+
+      </aside>
+
+
+      <!-- RIGHT CHAT PANE -->
+      <main class="chat-pane">
+
+        <!-- 1. EMPTY STATE -->
+        <div id="chat-empty-state" class="chat-empty-view">
+          <div class="empty-graphic">✦</div>
+          <h2 class="empty-title">Benvenuto su NOVA</h2>
+          <p class="empty-desc">
+            La piattaforma di messaggistica istantanea all-in-one a 360 gradi.
+            Nessun numero di telefono necessario: condividi il tuo @username e comunica in totale libertà!
+          </p>
+          <div style="display:flex; gap:10px; margin-top:20px; flex-wrap:wrap; justify-content:center;">
+            <div class="filter-pill">🔒 Zero Numeri di Telefono</div>
+            <div class="filter-pill">🌓 Giorno & Notte</div>
+            <div class="filter-pill">📹 Videochiamate HD</div>
+            <div class="filter-pill">📝 Cose da Fare & Note</div>
+            <div class="filter-pill">📌 Fissa Messaggi</div>
+          </div>
+        </div>
+
+        <!-- 2. ACTIVE CHAT STATE -->
+        <div id="chat-active-state" class="chat-active-view hidden">
+          
+          <!-- Chat Header -->
+          <div class="chat-header">
+            <div class="chat-header-left">
+              <button id="mobile-back-btn" class="icon-btn mobile-back-btn">←</button>
+              <img id="chat-header-avatar" class="avatar-circle" src="" alt="Avatar">
+              <div class="chat-header-info">
+                <span id="chat-header-name" class="chat-title"></span>
+                <span id="chat-header-status" class="chat-status-text"></span>
+              </div>
+            </div>
+            
+            <div class="chat-header-actions">
+              <button id="btn-header-call" class="call-btn" title="Chiamata Vocale">📞</button>
+              <button id="btn-header-video" class="call-btn" title="Videochiamata HD">📹</button>
+              <button id="btn-chat-menu-trigger" class="icon-btn" title="Opzioni Chat">⋮</button>
+            </div>
+          </div>
+
+          <!-- Top Pinned Message Banner -->
+          <div id="chat-pinned-banner" class="pinned-message-banner hidden">
+            <div class="pinned-left">
+              <span>📌</span>
+              <span id="pinned-banner-text" class="pinned-snippet"></span>
+            </div>
+            <span style="font-size:11px; color:var(--text-dim);">Tocca per visualizzare</span>
+          </div>
+
+          <!-- Messages Scroll Viewport -->
+          <div id="messages-container" class="messages-viewport"></div>
+
+          <!-- Reply Preview Bar -->
+          <div id="reply-preview-bar" class="reply-preview-container hidden">
+            <div style="display:flex; align-items:center; gap:10px; border-left: 3px solid var(--accent); padding-left: 10px;">
+              <div style="display:flex; flex-direction:column; font-size:12px;">
+                <span id="reply-preview-author" style="font-weight:700; color:#0284c7;"></span>
+                <span id="reply-preview-text" style="color:var(--text-muted);"></span>
+              </div>
+            </div>
+            <button id="cancel-reply-btn" class="icon-btn">✕</button>
+          </div>
+
+          <!-- Chat Input Footer -->
+          <div class="chat-footer">
+            <div id="attachment-popover" class="attachment-popover-menu hidden">
+              <button class="popover-item" id="btn-attach-photo"><span>📷</span> Foto o Immagine</button>
+              <button class="popover-item" id="btn-attach-meme"><span>🎭</span> Crea & Invia Meme</button>
+            </div>
+
+            <input type="file" id="hidden-photo-input" accept="image/*" class="hidden">
+
+            <!-- Voice Recording Status Overlay -->
+            <div id="voice-record-ui" class="voice-record-bar hidden">
+              <div class="voice-record-pulse">
+                <div class="pulse-dot"></div>
+                <span>Registrazione in corso...</span>
+                <span id="voice-timer-text">00:00</span>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button id="btn-voice-cancel" class="btn-secondary" style="color: var(--danger);">Annulla</button>
+                <button id="btn-voice-send" class="btn-primary" style="width: auto; padding: 8px 16px; margin: 0;">Invia Nota</button>
+              </div>
+            </div>
+
+            <!-- Normal Input Controls -->
+            <div id="chat-input-controls" class="input-controls-row">
+              <button id="btn-attach-menu" class="btn-input-action" title="Allegati">📎</button>
+              <textarea id="message-input" class="chat-textarea" placeholder="Scrivi un messaggio..." rows="1"></textarea>
+              <button id="btn-voice-record" class="btn-input-action" title="Nota Vocale">🎤</button>
+              <button id="btn-send-message" class="btn-input-action btn-send-main" title="Invia">➤</button>
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+
+  <!-- =============================================================
+       MODALS & OVERLAYS
+  ============================================================= -->
+
+  <!-- 1. 360° Context Menu (Rispondi, Modifica, Inoltra, Copia, Stella, Fissa, Traduci, Info, Elimina) -->
+  <div id="message-context-modal" class="context-menu-popover hidden">
+    <div class="ctx-emoji-row">
+      <button class="ctx-emoji-btn">❤️</button>
+      <button class="ctx-emoji-btn">👍</button>
+      <button class="ctx-emoji-btn">😂</button>
+      <button class="ctx-emoji-btn">😮</button>
+      <button class="ctx-emoji-btn">😢</button>
+      <button class="ctx-emoji-btn">🔥</button>
+    </div>
+    <button class="ctx-menu-item" id="ctx-reply-option">↩ Rispondi</button>
+    <button class="ctx-menu-item" id="ctx-edit-option">✏️ Modifica</button>
+    <button class="ctx-menu-item" id="ctx-forward-option">↪ Inoltra</button>
+    <button class="ctx-menu-item" id="ctx-copy-option">📋 Copia Testo</button>
+    <button class="ctx-menu-item" id="ctx-star-option">⭐ Importante (Stella)</button>
+    <button class="ctx-menu-item" id="ctx-pin-option">📌 Fissa in alto</button>
+    <button class="ctx-menu-item" id="ctx-translate-option">🌐 Traduci</button>
+    <button class="ctx-menu-item" id="ctx-info-option">ℹ️ Info Messaggio</button>
+    <button class="ctx-menu-item ctx-danger" id="ctx-delete-option">🗑 Elimina</button>
+  </div>
+
+  <!-- Chat Header Dropdown Menu (Delete chat, etc.) -->
+  <div id="chat-header-menu-modal" class="context-menu-popover hidden">
+    <button class="ctx-menu-item ctx-danger" id="menu-delete-conv-option">🗑 Elimina questa Chat</button>
+  </div>
+
+  <!-- 2. Forward Message Modal -->
+  <div id="forward-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>↪ Inoltra Messaggio</h3>
+        <button id="close-forward-modal" class="modal-close-btn">✕</button>
+      </div>
+      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Seleziona le chat a cui desideri inoltrare:</p>
+      <div id="forward-conversations-list" style="max-height: 260px; overflow-y: auto; margin-bottom: 16px;"></div>
+      <button id="btn-confirm-forward" class="btn-primary">Inoltra alle Chat Selezionate</button>
+    </div>
+  </div>
+
+  <!-- 3. Message Info Modal -->
+  <div id="msg-info-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>ℹ️ Informazioni Messaggio</h3>
+        <button id="close-msg-info-modal" class="modal-close-btn">✕</button>
+      </div>
+      <div style="font-size: 14px; display: flex; flex-direction: column; gap: 10px;">
+        <div><strong>Mittente:</strong> <span id="info-sender"></span></div>
+        <div><strong>Inviato il:</strong> <span id="info-sent-time"></span></div>
+        <div><strong>Stato:</strong> <span id="info-status" style="color:var(--accent);">✓✓ Consegnato e Letto</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Create Community Modal -->
+  <div id="create-community-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>🌐 Crea Nuova Community</h3>
+        <button id="close-community-modal" class="modal-close-btn">✕</button>
+      </div>
+      <form id="create-community-form">
+        <div class="form-group">
+          <label>Nome Community</label>
+          <input type="text" id="comm-name-input" placeholder="es. Università, Azienda Tech, Quartiere" required>
+        </div>
+        <div class="form-group">
+          <label>Descrizione</label>
+          <textarea id="comm-desc-input" rows="3" placeholder="Spiega di cosa tratta questa community..."></textarea>
+        </div>
+        <button type="submit" class="btn-primary">Crea Community con Canale Annunci</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 5. WebRTC Active Call Screen -->
+  <div id="active-call-modal" class="call-modal-overlay hidden">
+    <div class="call-viewports">
+      <video id="remote-video" autoplay playsinline></video>
+      <div id="call-avatar-wrap" class="call-avatar-container">
+        <img id="call-peer-avatar" class="call-big-avatar" src="" alt="Avatar">
+      </div>
+      <div id="local-video-wrap" class="local-video-pip">
+        <video id="local-video" autoplay playsinline muted></video>
+      </div>
+      <div class="call-top-hud">
+        <span id="call-peer-name" class="call-peer-title"></span>
+        <span id="call-status-text" class="call-status-subtitle"></span>
+        <span id="call-duration-text" style="color:#fff; font-size: 16px; margin-top: 4px;">00:00</span>
+      </div>
+    </div>
+    <div class="call-controls-hud">
+      <button id="btn-call-mute" class="hud-btn" title="Muto">🎤</button>
+      <button id="btn-call-video" class="hud-btn" title="Telecamera">📹</button>
+      <button id="btn-call-end" class="hud-btn btn-end" title="Termina">📞</button>
+    </div>
+  </div>
+
+  <!-- 6. Incoming Call Dialog -->
+  <div id="incoming-call-modal" class="modal-overlay hidden">
+    <div class="modal-box incoming-call-box">
+      <img id="incoming-caller-avatar" class="call-big-avatar" src="" alt="Chiamante">
+      <h3 id="incoming-caller-name" style="font-size: 22px; margin-top: 16px;"></h3>
+      <p id="incoming-call-type" style="color: var(--accent); margin-top: 6px;">Chiamata in arrivo...</p>
+      <div class="incoming-actions-row">
+        <button id="btn-incoming-accept-video" class="btn-accept">📹 Video</button>
+        <button id="btn-incoming-accept-audio" class="btn-accept" style="background:#0284c7;">📞 Audio</button>
+        <button id="btn-incoming-reject" class="btn-decline">✕ Rifiuta</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Meme Creator Modal -->
+  <div id="meme-modal" class="modal-overlay hidden">
+    <div class="modal-box" style="max-width: 640px;">
+      <div class="modal-header">
+        <h3>🎭 Generatore di Meme NOVA</h3>
+        <button id="close-meme-modal" class="modal-close-btn">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Template</label>
+        <select id="meme-template-select" style="padding: 10px;">
+          <option value="drake">Drake Approves (Non questo / Questo!)</option>
+          <option value="distracted">Distracted Boyfriend (Tu / Nuova App / WhatsApp)</option>
+          <option value="two_buttons">Two Buttons Panic (Quale scelgo?!)</option>
+          <option value="galaxy_brain">Expanding Brain (Cervello Cosmico)</option>
+        </select>
+      </div>
+      <div class="meme-canvas-wrap">
+        <canvas id="meme-canvas"></canvas>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div class="form-group" style="margin: 0;">
+          <label>Testo Superiore</label>
+          <input type="text" id="meme-top-text" placeholder="TESTO SOPRA">
+        </div>
+        <div class="form-group" style="margin: 0;">
+          <label>Testo Inferiore</label>
+          <input type="text" id="meme-bottom-text" placeholder="TESTO SOTTO">
+        </div>
+      </div>
+      <button id="btn-send-meme-chat" class="btn-primary">Invia Meme in Chat</button>
+    </div>
+  </div>
+
+  <!-- 8. Stories Viewer Modal -->
+  <div id="story-viewer-modal" class="modal-overlay hidden" style="padding: 0;">
+    <div class="story-viewer-box">
+      <div id="story-progress-bars" class="story-progress-container"></div>
+      <div class="story-hud-header">
+        <div class="story-user-meta">
+          <img id="story-user-avatar" src="" alt="Avatar">
+          <div>
+            <span id="story-user-name" style="font-weight: 700; color: #fff; font-size: 14px; display: block;"></span>
+            <span id="story-user-time" style="font-size: 11px; color: rgba(255,255,255,0.7);"></span>
+          </div>
+        </div>
+        <button id="close-story-viewer" class="modal-close-btn" style="color:#fff;">✕</button>
+      </div>
+      <div class="story-content-area" id="story-display-area">
+        <div class="story-nav-prev" id="story-prev-trigger"></div>
+        <div class="story-nav-next" id="story-next-trigger"></div>
+        <div id="story-content-text" class="story-text-view hidden"></div>
+        <div id="story-content-image" class="story-image-view hidden">
+          <img id="story-img-tag" src="" alt="Story">
+          <p id="story-caption-tag" style="color: #fff; margin-top: 12px; font-weight: 600;"></p>
+        </div>
+      </div>
+      <div class="story-reply-footer">
+        <form id="story-reply-form" class="story-reply-form">
+          <input type="text" id="story-reply-input" placeholder="Rispondi a questa storia..." style="flex:1; padding: 10px 14px; border-radius: 99px;">
+          <button type="submit" class="btn-primary" style="width: auto; padding: 8px 18px; margin:0; border-radius: 99px;">Invia</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Create Story Modal -->
+  <div id="create-story-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>⭕ Pubblica un nuovo Stato (24h)</h3>
+        <button id="close-create-story-modal" class="modal-close-btn">✕</button>
+      </div>
+      <div class="form-group">
+        <label>Sfondo Gradiente</label>
+        <select id="story-gradient-picker" style="padding: 10px;">
+          <option value="linear-gradient(135deg, #10b981, #06b6d4)">Smeraldo & Ciano</option>
+          <option value="linear-gradient(135deg, #6366f1, #d946ef)">Neon Viola & Fucsia</option>
+          <option value="linear-gradient(135deg, #f59e0b, #ef4444)">Tramonto Tropicale</option>
+          <option value="linear-gradient(135deg, #1e293b, #0f172a)">Notte Profonda</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Messaggio dello Stato</label>
+        <textarea id="story-create-text" rows="4" placeholder="Cosa hai in mente oggi?" style="padding: 12px; font-size: 16px;"></textarea>
+      </div>
+      <button id="btn-publish-story" class="btn-primary">Pubblica Stato per 24 Ore</button>
+    </div>
+  </div>
+
+  <!-- 10. New Direct Chat Modal -->
+  <div id="new-chat-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Nuova Conversazione</h3>
+        <button id="close-new-chat-modal" class="modal-close-btn">✕</button>
+      </div>
+      <div class="search-input-wrap" style="margin-bottom: 16px;">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="new-chat-search-input" placeholder="Cerca @username, nome o email...">
+      </div>
+      <div id="new-chat-results" style="max-height: 280px; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <!-- 11. New Group Modal -->
+  <div id="new-group-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Crea Nuovo Gruppo</h3>
+        <button id="close-new-group-modal" class="modal-close-btn">✕</button>
+      </div>
+      <form id="create-group-form">
+        <div class="form-group">
+          <label for="group-name-input">Nome del Gruppo</label>
+          <input type="text" id="group-name-input" placeholder="es. Amici, Team Progetto" required>
+        </div>
+        <button type="submit" class="btn-primary">Crea Gruppo</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 12. User Profile Settings Modal -->
+  <div id="profile-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Profilo & Impostazioni</h3>
+        <button id="close-profile-modal" class="modal-close-btn">✕</button>
+      </div>
+      <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px;">
+        <img id="prof-avatar-img" class="avatar-circle" style="width: 64px; height: 64px;" src="" alt="Avatar">
+        <div>
+          <div id="prof-username" style="font-size: 16px; font-weight: 700; color: var(--accent);"></div>
+          <div id="prof-email" style="font-size: 12px; color: var(--text-muted);"></div>
+        </div>
+      </div>
+      <form id="profile-form">
+        <div class="form-group">
+          <label for="prof-fullname">Nome e Cognome</label>
+          <input type="text" id="prof-fullname" required>
+        </div>
+        <div class="form-group">
+          <label for="prof-bio">Bio / Info Personali</label>
+          <input type="text" id="prof-bio" placeholder="Il tuo stato personale">
+        </div>
+        <button type="submit" class="btn-primary">Salva Modifiche</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 13. Photo Lightbox Modal -->
+  <div id="lightbox-modal" class="lightbox-overlay hidden">
+    <img id="lightbox-img" src="" alt="Enlarged photo">
+  </div>
+
+  <!-- Heads-Up Toast Container (floating notifications) -->
+  <div id="heads-up-toast-container"></div>
+
+  <!-- Client-Side Scripts -->
+  <script src="/js/audio.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/socket.js"></script>
+  <script src="/js/webrtc.js"></script>
+  <script src="/js/memes.js"></script>
+  <script src="/js/stories.js"></script>
+  <script src="/js/notifications.js"></script>
+  <script src="/js/app.js"></script>
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('[SW] Registered:', reg.scope))
+          .catch(err => console.warn('[SW] Registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

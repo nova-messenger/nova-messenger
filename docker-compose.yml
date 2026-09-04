@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  aether:
+    build: .
+    container_name: aether_messenger
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
+    environment:
+      - PORT=3000
+      - HOST=0.0.0.0
+      - DB_PATH=/app/data/aether.db
